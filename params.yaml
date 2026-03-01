@@ -7,3 +7,26 @@ scrape_freedreams:
 merge_datasets:
   restaurant_match_score: 90 # levenshtein distance threshold for matching restaurant names
   location_match_score: 90 # levenshtein distance threshold for matching locations
+
+weekly_pipeline:
+  clean_before_run: true
+  lunchcheck_headless: true
+  freedreams_headless: false
+  n_jobs: -1
+  lunchcheck_output_filename: "lunchcheck_restaurants.csv"
+  freedreams_scrapes:
+    - num_nights: 2
+      output_filename: "freedreams_restaurants_2nights.csv"
+    - num_nights: 3
+      output_filename: "freedreams_restaurants_3nights.csv"
+  merge_output_path: "output"
+  collect_info_jobs:
+    - label: "Generate 2-night map and report"
+      input_file: "output/filtered_matches_2nights.csv"
+      output_screenshots_html_path: "results/2_nights_info.html"
+      output_map_html_path: "results/2_nights_map.html"
+    - label: "Generate 3-night map and report"
+      input_file: "output/filtered_matches_3nights.csv"
+      output_screenshots_html_path: "results/3_nights_info.html"
+      output_map_html_path: "results/3_nights_map.html"
+  index_file: "index.html"

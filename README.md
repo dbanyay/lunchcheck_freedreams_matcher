@@ -1,7 +1,6 @@
 # 🏨 Lunch-Check  freedreams Hotel Matcher 🇨🇭
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![DVC](https://img.shields.io/badge/DVC-enabled-success)](https://dvc.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Find hotels in Switzerland where you can **stay using your Lunch-Check credit** — by combining [Freedreams](https://www.freedreams.ch/) hotel deals with [Lunch-Check](https://www.lunch-check.ch/) participating restaurants.
@@ -44,17 +43,11 @@ You need to activate the virtual environment created by uv:
 source .venv/bin/activate
 ```
 
-Then, initialize DVC to be able to use the pipeline:
-
-```bash
-dvc init
-```
-
 ## 🚀 Usage
-Use dvc repro to run the pipeline and generate the HTML page with matched hotels:
+Run the full pipeline and generate the HTML pages with matched hotels:
 
 ```bash
-dvc repro
+uv run python src/run_weekly_pipeline.py
 ```
 
 ## 📄 Output

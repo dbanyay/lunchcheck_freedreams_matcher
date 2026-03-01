@@ -1,0 +1,9 @@
+.dvc/
+output/
+
+results/*
+!results/.gitignore
+!results/2_nights_map.html
+!results/3_nights_map.html
+!results/2_nights_info.html
+!results/3_nights_info.html

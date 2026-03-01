@@ -10,6 +10,7 @@ import argparse
 from pathlib import Path
 import json
 import time # Import time for delays
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Import Nominatim for geocoding
 from geopy.geocoders import Nominatim
@@ -44,17 +45,14 @@ def setup_driver():
     # Exclude specific switches to prevent certain console messages (e.g., DevTools listening)
     chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-    # Setup WebDriver Service. Assumes chromedriver is in your system's PATH.
-    # If not, you'll need to specify its path: Service(executable_path='/path/to/chromedriver')
+    # Setup WebDriver Service using webdriver-manager so local and CI environments behave similarly.
     try:
-        service = Service()
+        service = Service(executable_path=ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
     except WebDriverException as e:
         print(f"Error initializing WebDriver: {e}")
-        print("Please ensure chromedriver is installed and accessible in your system's PATH.")
-        print(
-            "You can download the appropriate chromedriver for your Chrome version from: https://chromedriver.chromium.org/downloads")
+        print("Could not initialize Chrome WebDriver with webdriver-manager.")
         return None
 
 
