@@ -1,0 +1,43 @@
+name: Weekly Maps And Pages Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every Sunday at 05:00 UTC
+    - cron: "0 5 * * 0"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-maps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run weekly pipeline
+        run: uv run python src/run_weekly_pipeline.py
+
+      - name: Commit and push updated pages artifacts
+        run: |
+          git add index.html results/2_nights_map.html results/3_nights_map.html results/2_nights_info.html results/3_nights_info.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: weekly refresh of generated maps and page date"
+          git push
