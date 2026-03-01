@@ -10,9 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  refresh-maps:
+  scrape-lunchcheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -29,8 +29,188 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Run weekly pipeline
-        run: uv run python src/run_weekly_pipeline.py
+      - name: Scrape Lunch-Check
+        run: uv run python src/scrape_lunchcheck.py --base-url "https://www.lunch-card.ch/public/LunchCheck/LC_Directory.aspx" --output-filename lunchcheck_restaurants.csv --headless
+
+      - name: Upload Lunch-Check data
+        uses: actions/upload-artifact@v4
+        with:
+          name: lunchcheck-data
+          path: data/lunchcheck_restaurants.csv
+          if-no-files-found: error
+
+  scrape-freedreams:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        nights: [2, 3]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Install virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+
+      - name: Scrape Freedreams
+        run: xvfb-run -a uv run python src/scrape_freedreams.py --base-url "https://www.freedreams.ch/de/suche" --output-filename "freedreams_restaurants_${{ matrix.nights }}nights.csv" --num-nights "${{ matrix.nights }}"
+
+      - name: Upload Freedreams data
+        uses: actions/upload-artifact@v4
+        with:
+          name: freedreams-data-${{ matrix.nights }}nights
+          path: data/freedreams_restaurants_${{ matrix.nights }}nights.csv
+          if-no-files-found: error
+
+  merge-datasets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [scrape-lunchcheck, scrape-freedreams]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Download Lunch-Check data
+        uses: actions/download-artifact@v4
+        with:
+          name: lunchcheck-data
+          path: data
+
+      - name: Download Freedreams 2-night data
+        uses: actions/download-artifact@v4
+        with:
+          name: freedreams-data-2nights
+          path: data
+
+      - name: Download Freedreams 3-night data
+        uses: actions/download-artifact@v4
+        with:
+          name: freedreams-data-3nights
+          path: data
+
+      - name: Merge datasets
+        run: uv run python src/merge_datasets.py --input-files data/lunchcheck_restaurants.csv data/freedreams_restaurants_2nights.csv data/freedreams_restaurants_3nights.csv --output-path output --n-jobs 1
+
+      - name: Upload merged datasets
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-data
+          path: |
+            output/filtered_matches_2nights.csv
+            output/filtered_matches_3nights.csv
+          if-no-files-found: error
+
+  collect-info:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: merge-datasets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nights: "2"
+            input_file: output/filtered_matches_2nights.csv
+            info_file: results/2_nights_info.html
+            map_file: results/2_nights_map.html
+          - nights: "3"
+            input_file: output/filtered_matches_3nights.csv
+            info_file: results/3_nights_info.html
+            map_file: results/3_nights_map.html
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Download merged datasets
+        uses: actions/download-artifact@v4
+        with:
+          name: merged-data
+          path: output
+
+      - name: Generate map and report
+        run: uv run python src/collect_info.py --input-file "${{ matrix.input_file }}" --output-screenshots-html-path "${{ matrix.info_file }}" --output-map-html-path "${{ matrix.map_file }}"
+
+      - name: Upload generated result artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.nights }}nights
+          path: |
+            ${{ matrix.info_file }}
+            ${{ matrix.map_file }}
+          if-no-files-found: error
+
+  update-page-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: collect-info
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Download 2-night results
+        uses: actions/download-artifact@v4
+        with:
+          name: results-2nights
+          path: results
+
+      - name: Download 3-night results
+        uses: actions/download-artifact@v4
+        with:
+          name: results-3nights
+          path: results
+
+      - name: Update index date
+        run: uv run python src/generate_github_page.py --index-file index.html
 
       - name: Commit and push updated pages artifacts
         run: |

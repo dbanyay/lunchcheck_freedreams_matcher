@@ -28,8 +28,8 @@ def parse_arguments():
     parser.add_argument(
         "--n-jobs",
         type=int,
-        default=-1,
-        help="Number of parallel jobs to run. -1 means use all available CPU cores. Default is -1."
+        default=1,
+        help="Number of parallel jobs to run. Set to 1 for sequential execution. Default is 1."
     )
     return parser.parse_args()
 
@@ -66,7 +66,7 @@ def find_and_load_data(input_dir):
             continue
 
     if df_lunchcheck.empty:
-        raise "Warning: No 'lunch' CSV file found with the specified column. Cannot perform matching."
+        raise ValueError("No 'lunch' CSV file found with the specified column. Cannot perform matching.")
 
     return df_lunchcheck, freedreams_dfs
 
@@ -131,7 +131,7 @@ def main():
     if not params_file.exists():
         print(f"Error: params.yaml file not found in {params_file}. Please ensure it exists.")
         return
-    with open(params_file, 'r') as file:
+    with open(params_file, 'r', encoding='utf-8') as file:
         params = yaml.safe_load(file)
 
     restaurant_match_score = params["merge_datasets"].get('restaurant_match_score', 80)
@@ -151,10 +151,16 @@ def main():
             chunk_size = max(1, len(freedreams_df) // (n_jobs if n_jobs != -1 else os.cpu_count() or 10)) # Adjust chunk size
             for i in range(0, len(freedreams_df), chunk_size):
                 chunk = freedreams_df.iloc[i:i+chunk_size]
-                chunk_results = Parallel(n_jobs=n_jobs)(
-                    delayed(process_freedreams_row)(row_fd, df_lunchcheck, restaurant_match_score)
-                    for _, row_fd in chunk.iterrows()
-                )
+                if n_jobs == 1:
+                    chunk_results = [
+                        process_freedreams_row(row_fd, df_lunchcheck, restaurant_match_score)
+                        for _, row_fd in chunk.iterrows()
+                    ]
+                else:
+                    chunk_results = Parallel(n_jobs=n_jobs)(
+                        delayed(process_freedreams_row)(row_fd, df_lunchcheck, restaurant_match_score)
+                        for _, row_fd in chunk.iterrows()
+                    )
                 for matches_from_row in chunk_results:
                     all_matches_for_file.extend(matches_from_row)
                 pbar.update(len(chunk))
