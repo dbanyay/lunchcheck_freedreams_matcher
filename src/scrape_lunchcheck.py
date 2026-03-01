@@ -176,7 +176,7 @@ def scrape_lunchcheck(base_url, output_filename, max_pages, headless):
     main_table_id = "ctl00_SheetContentPlaceHolder_ctl00_ctl01_GridView1"
     dropdown_page_size_id = "ctl00_SheetContentPlaceHolder_ctl00_ctl01_ddlPageSize"
 
-    wait_time = 1
+    wait_time = 3
 
     try:
         driver.get(base_url)
