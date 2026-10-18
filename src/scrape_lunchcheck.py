@@ -12,7 +12,8 @@ REQUEST_TIMEOUT = 120
 
 # Same columns as the former Selenium scraper, so merge_datasets.py is unaffected.
 # The new directory API does not expose a phone number, so that column stays empty.
-OUTPUT_COLUMNS = ["Restaurant Name", "Address", "ZIP Code", "City", "Canton", "Phone"]
+# Latitude/Longitude are new: they allow matching hotels to restaurants by location.
+OUTPUT_COLUMNS = ["Restaurant Name", "Address", "ZIP Code", "City", "Canton", "Phone", "Latitude", "Longitude"]
 
 
 def http_json(url, payload=None, origin=None):
@@ -71,6 +72,8 @@ def to_dataframe(items):
             "City": (item.get("city") or "").strip(),
             "Canton": (item.get("region") or "").strip(),
             "Phone": "",
+            "Latitude": (item.get("coordinate") or {}).get("latitude"),
+            "Longitude": (item.get("coordinate") or {}).get("longitude"),
         }
         for item in items
     ]

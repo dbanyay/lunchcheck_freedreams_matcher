@@ -25,6 +25,8 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -58,14 +60,22 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Cache chromedriver
+        uses: actions/cache@v4
+        with:
+          path: ~/.wdm
+          key: wdm-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: wdm-${{ runner.os }}-
+
       - name: Install virtual display
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb
+          command -v xvfb-run >/dev/null || { sudo apt-get update && sudo apt-get install -y xvfb; }
 
       - name: Scrape Freedreams
         run: xvfb-run -a uv run python src/scrape_freedreams.py --base-url "https://www.freedreams.ch/de/suche" --output-filename "freedreams_restaurants_${{ matrix.nights }}nights.csv" --num-nights "${{ matrix.nights }}"
@@ -77,10 +87,10 @@ jobs:
           path: data/freedreams_restaurants_${{ matrix.nights }}nights.csv
           if-no-files-found: error
 
-  merge-datasets:
+  scrape-hotel-details:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: [scrape-lunchcheck, scrape-freedreams]
+    timeout-minutes: 45
+    needs: scrape-freedreams
 
     steps:
       - name: Checkout repository
@@ -93,6 +103,66 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Download Freedreams 2-night data
+        uses: actions/download-artifact@v4
+        with:
+          name: freedreams-data-2nights
+          path: data
+
+      - name: Download Freedreams 3-night data
+        uses: actions/download-artifact@v4
+        with:
+          name: freedreams-data-3nights
+          path: data
+
+      - name: Cache chromedriver
+        uses: actions/cache@v4
+        with:
+          path: ~/.wdm
+          key: wdm-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: wdm-${{ runner.os }}-
+
+      - name: Cache hotel addresses
+        uses: actions/cache@v4
+        with:
+          path: .cache/hotel_details.json
+          key: hotel-details-${{ github.run_id }}
+          restore-keys: hotel-details-
+
+      - name: Read hotel addresses
+        run: uv run python src/scrape_hotel_details.py --input-files data/freedreams_restaurants_2nights.csv data/freedreams_restaurants_3nights.csv --output-filename freedreams_hotel_details.csv --headless
+
+      - name: Upload hotel details
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel-details
+          path: data/freedreams_hotel_details.csv
+          if-no-files-found: error
+
+  merge-datasets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [scrape-lunchcheck, scrape-freedreams, scrape-hotel-details]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -115,8 +185,14 @@ jobs:
           name: freedreams-data-3nights
           path: data
 
+      - name: Download hotel details
+        uses: actions/download-artifact@v4
+        with:
+          name: hotel-details
+          path: data
+
       - name: Merge datasets
-        run: uv run python src/merge_datasets.py --input-files data/lunchcheck_restaurants.csv data/freedreams_restaurants_2nights.csv data/freedreams_restaurants_3nights.csv --output-path output --n-jobs 1
+        run: uv run python src/merge_datasets.py --input-files data/lunchcheck_restaurants.csv data/freedreams_hotel_details.csv data/freedreams_restaurants_2nights.csv data/freedreams_restaurants_3nights.csv --output-path output --n-jobs 1
 
       - name: Upload merged datasets
         uses: actions/upload-artifact@v4
@@ -155,6 +231,8 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen
@@ -164,6 +242,20 @@ jobs:
         with:
           name: merged-data
           path: output
+
+      - name: Cache chromedriver
+        uses: actions/cache@v4
+        with:
+          path: ~/.wdm
+          key: wdm-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: wdm-${{ runner.os }}-
+
+      - name: Cache geocoding results
+        uses: actions/cache@v4
+        with:
+          path: .cache/geocode_cache.json
+          key: geocode-${{ matrix.nights }}-${{ github.run_id }}
+          restore-keys: geocode-${{ matrix.nights }}-
 
       - name: Generate map and report
         run: uv run python src/collect_info.py --input-file "${{ matrix.input_file }}" --output-screenshots-html-path "${{ matrix.info_file }}" --output-map-html-path "${{ matrix.map_file }}"
@@ -193,6 +285,8 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: uv sync --frozen

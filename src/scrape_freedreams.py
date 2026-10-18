@@ -11,6 +11,27 @@ from pathlib import Path
 import argparse  # Import the argparse module
 
 
+# Extracts all hotel cards of the current page in a single browser round-trip.
+# (Per-element find_element calls cost one WebDriver round-trip each, ~6 per hotel.)
+EXTRACT_HOTELS_JS = """
+const clean = s => s.replace(/\\s+/g, ' ').trim();
+return Array.from(document.querySelectorAll('article.s-hotel-item')).map(card => {
+    const link = card.querySelector('h2 a');
+    if (!link) return null;
+    const location = card.querySelector('p');
+    const rating = card.querySelector('.s-rating-summary');
+    const stars = card.querySelector('.s-hotelstars');
+    return {
+        hotel_name: clean(card.querySelector('h2').textContent),
+        location: location ? clean(location.textContent) : '',
+        rating: rating ? clean(rating.textContent) : 'No rating',
+        num_stars: stars ? stars.querySelectorAll('i').length : 0,
+        webpage: link.href,
+    };
+}).filter(Boolean);
+"""
+
+
 def scrape_freedreams_hotels(base_url: str = "https://www.freedreams.ch/de/suche",
                              num_nights: int = 3,
                              max_pages: int = -1,
@@ -41,6 +62,9 @@ def scrape_freedreams_hotels(base_url: str = "https://www.freedreams.ch/de/suche
         print("Running browser in headless mode.")
     else:
         print("Running browser in headful (visible) mode.")
+
+    # Only text is needed; skipping images makes every page load noticeably faster.
+    chrome_options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
 
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
@@ -78,12 +102,18 @@ def scrape_freedreams_hotels(base_url: str = "https://www.freedreams.ch/de/suche
         )
         duration_option.click()
 
-        # Step 4: Click "Suchen" button
+        # Step 4: Click "Suchen" button and wait until the results page has actually been replaced
         print("Clicking 'Suchen' button...")
+        try:
+            old_hotel_list = driver.find_element(By.CSS_SELECTOR, "section.s-hotel-list")
+        except NoSuchElementException:
+            old_hotel_list = None
         wait.until(EC.element_to_be_clickable((By.ID, "search_filter_search"))).click()
-
-        # Small pause for the initial search results to load fully after clicking search
-        time.sleep(3)
+        if old_hotel_list is not None:
+            wait.until(EC.staleness_of(old_hotel_list))
+        else:
+            time.sleep(3)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "article.s-hotel-item")))
 
         # Determine max_pages if not specified by argument
         if max_pages == -1:
@@ -143,7 +173,6 @@ def scrape_freedreams_hotels(base_url: str = "https://www.freedreams.ch/de/suche
                     wait.until(EC.staleness_of(old_hotel_list))
                     # Wait for the new page's main content to load
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "section.s-hotel-list")))
-                    time.sleep(1.0)  # Additional small delay for content rendering
                 except TimeoutException:
                     print(f"Timeout waiting for pagination link for page {page}. Ending pagination.")
                     break
@@ -168,37 +197,10 @@ def scrape_freedreams_hotels(base_url: str = "https://www.freedreams.ch/de/suche
                 print(f"No hotels found on page {page}. Ending scrape.")
                 break
 
-            for hotel in hotels:
-                try:
-                    hotel_name = hotel.find_element(By.CSS_SELECTOR, "h2").text
-                    location = hotel.find_element(By.CSS_SELECTOR, "p").text
-                    try:
-                        rating = hotel.find_element(By.CLASS_NAME, "s-rating-summary").text
-                    except NoSuchElementException:
-                        rating = "No rating"
-                    webpage = hotel.find_element(By.CSS_SELECTOR, "h2").find_element(By.CSS_SELECTOR,
-                                                                                     "a").get_attribute("href")
+            all_hotels.extend(driver.execute_script(EXTRACT_HOTELS_JS))
 
-                    try:
-                        num_stars = len(
-                            hotel.find_element(By.CLASS_NAME, "s-hotelstars").find_elements(By.CSS_SELECTOR, "i"))
-                    except NoSuchElementException:
-                        num_stars = 0
-
-                    all_hotels.append({
-                        "hotel_name": hotel_name,
-                        "location": location,
-                        "rating": rating,
-                        "num_stars": num_stars,
-                        "webpage": webpage,
-                    })
-
-                except Exception as e:
-                    print(f"Error parsing a hotel item on page {page}: {e}")
-                    continue
-
-            # Add a small delay between pages to be polite and avoid detection
-            time.sleep(1.5)
+            # Short pause between pages to be polite; the site rate-limits aggressive clients
+            time.sleep(0.5)
 
     except Exception as e:
         print(f"An error occurred during the scraping process: {e}")

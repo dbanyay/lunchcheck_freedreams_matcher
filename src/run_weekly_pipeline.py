@@ -106,10 +106,11 @@ def main() -> None:
     clean_before_run = weekly.get("clean_before_run", True) and not args.no_clean
     lunchcheck_headless = weekly.get("lunchcheck_headless", True)
     freedreams_headless = weekly.get("freedreams_headless", False)
+    hotel_details_output = weekly.get("hotel_details_output_filename", "freedreams_hotel_details.csv")
+    hotel_details_headless = weekly.get("hotel_details_headless", True)
 
-    merge_input_files = [f"data/{lunchcheck_output}"] + [
-        f"data/{job['output_filename']}" for job in freedreams_scrapes
-    ]
+    freedreams_files = [f"data/{job['output_filename']}" for job in freedreams_scrapes]
+    merge_input_files = [f"data/{lunchcheck_output}", f"data/{hotel_details_output}"] + freedreams_files
     clean_targets = merge_input_files.copy()
     for collect_job in collect_info_jobs:
         clean_targets.append(collect_job["input_file"])
@@ -150,6 +151,17 @@ def main() -> None:
         if freedreams_headless:
             freedreams_commands[-1][0].append("--headless")
 
+    hotel_details_command = [
+        python_bin,
+        "src/scrape_hotel_details.py",
+        "--input-files",
+        *freedreams_files,
+        "--output-filename",
+        hotel_details_output,
+    ]
+    if hotel_details_headless:
+        hotel_details_command.append("--headless")
+
     commands = [
         (
             [
@@ -162,7 +174,7 @@ def main() -> None:
                 "--n-jobs",
                 str(n_jobs),
             ],
-            "Merge and filter matched datasets",
+            "Match hotels and restaurants by address",
         )
     ]
 
@@ -195,6 +207,7 @@ def main() -> None:
 
     run_step(command=lunchcheck_command[0], label=lunchcheck_command[1])
     run_parallel_steps(steps=freedreams_commands)
+    run_step(command=hotel_details_command, label="Read hotel addresses from Freedreams detail pages")
 
     for command, label in commands:
         run_step(command=command, label=label)

@@ -5,8 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, WebDriverException
-import base64
 import argparse
+import html
 from pathlib import Path
 import json
 import time # Import time for delays
@@ -15,6 +15,22 @@ from webdriver_manager.chrome import ChromeDriverManager
 # Import Nominatim for geocoding
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+
+GEOCODE_CACHE_PATH = Path.cwd() / ".cache" / "geocode_cache.json"
+
+
+def load_geocode_cache():
+    """Returns {location_name: [lat, lng]} from previous runs. Place names rarely move, so this is safe to reuse."""
+    try:
+        return json.loads(GEOCODE_CACHE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_geocode_cache(cache):
+    GEOCODE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    GEOCODE_CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
+
 
 def setup_driver():
     """
@@ -56,6 +72,44 @@ def setup_driver():
         return None
 
 
+# Screenshots are embedded as base64 in the HTML files. Full-page PNGs of ~470 KB each made the maps 7-11 MB,
+# so cropped JPEGs are used, and the map popups get a small thumbnail captured at reduced scale.
+FULL_JPEG_QUALITY = 80
+THUMB_JPEG_QUALITY = 70
+THUMB_WIDTH_PX = 520  # displayed at ~260 CSS px: 2x for sharp rendering on phone screens
+
+
+# The detail page is ~3000 px tall (calendar, long description, ...). Only the top is interesting:
+# title with hotel stars, address, photo, price/meals and the guest rating.
+CROP_HEIGHT_PX = 720
+CROP_TOP_SELECTOR = ".s-headline-row"
+
+
+def capture_element_jpeg(driver, element, quality, target_width=None):
+    """
+    Captures the top part of an element (from its title row, CROP_HEIGHT_PX tall) as base64 JPEG via the
+    DevTools protocol, optionally scaled down to target_width.
+    """
+    rect = driver.execute_script(
+        "const el = arguments[0], selector = arguments[1];"
+        "const box = el.getBoundingClientRect();"
+        "const title = el.querySelector(selector);"
+        "const top = Math.max(box.top, title ? title.getBoundingClientRect().top - 15 : box.top);"
+        "return {x: box.left + window.scrollX, y: top + window.scrollY, width: box.width,"
+        "        height: box.bottom - top};",
+        element, CROP_TOP_SELECTOR,
+    )
+    rect["height"] = min(rect["height"], CROP_HEIGHT_PX)
+    scale = min(1.0, target_width / rect["width"]) if target_width else 1.0
+    result = driver.execute_cdp_cmd("Page.captureScreenshot", {
+        "format": "jpeg",
+        "quality": quality,
+        "captureBeyondViewport": True,
+        "clip": {**rect, "scale": scale},
+    })
+    return result["data"]
+
+
 def scrape_hotel_images(df):
     """
     Reads URLs from the specified DataFrame, visits each URL, and scrapes a screenshot
@@ -80,6 +134,7 @@ def scrape_hotel_images(df):
             image_data_list.append({
                 'url': None, # Keep the structure, but indicate no image
                 'image_base64': None,
+                'thumb_base64': None,
                 'index': index # Store original index for merging
             })
             continue
@@ -89,12 +144,10 @@ def scrape_hotel_images(df):
             driver.get(url)
             wait = WebDriverWait(driver, 20)
             target_div = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, target_div_selector)))
-            png_bytes = target_div.screenshot_as_png
-            base64_encoded_image = base64.b64encode(png_bytes).decode('utf-8')
-
             image_data_list.append({
                 'url': url,
-                'image_base64': base64_encoded_image,
+                'image_base64': capture_element_jpeg(driver, target_div, FULL_JPEG_QUALITY),
+                'thumb_base64': capture_element_jpeg(driver, target_div, THUMB_JPEG_QUALITY, THUMB_WIDTH_PX),
                 'index': index # Store original index for merging
             })
             print(f"Successfully scraped image for {url}")
@@ -104,6 +157,7 @@ def scrape_hotel_images(df):
             image_data_list.append({
                 'url': url,
                 'image_base64': None, # No image if timeout
+                'thumb_base64': None,
                 'index': index
             })
         except WebDriverException as e:
@@ -111,6 +165,7 @@ def scrape_hotel_images(df):
             image_data_list.append({
                 'url': url,
                 'image_base64': None,
+                'thumb_base64': None,
                 'index': index
             })
         except Exception as e:
@@ -118,6 +173,7 @@ def scrape_hotel_images(df):
             image_data_list.append({
                 'url': url,
                 'image_base64': None,
+                'thumb_base64': None,
                 'index': index
             })
 
@@ -245,7 +301,7 @@ def generate_html_report(image_data_list, output_html_path="hotel_screenshots.ht
                 html_content += f"""
         <div class="hotel-entry">
             <h2>Source URL: <a href="{data['url']}" target="_blank">{data['url']}</a></h2>
-            <img src="data:image/png;base64,{data['image_base64']}" alt="Screenshot of {data['url']}">
+            <img src="data:image/jpeg;base64,{data['image_base64']}" alt="Screenshot of {data['url']}">
         </div>
         """
             else:
@@ -269,11 +325,128 @@ def generate_html_report(image_data_list, output_html_path="hotel_screenshots.ht
         print(f"Error writing HTML file '{output_html_path}': {e}")
 
 
-def generate_map_html(df, location_col, image_data_list, output_html_path="hotel_map.html"):
+def build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry=None):
+    """HTML of a map popup: hotel name, stars and rating as text (readable at any size), restaurants, thumbnail."""
+    name = row.get('freedreams_hotel_name')
+    name = name if isinstance(name, str) and name else hotel_url
+    html_parts = [f"<b><a href='{html.escape(str(hotel_url), quote=True)}' target='_blank'>{html.escape(name)}</a></b>"]
+
+    meta = []
+    try:
+        num_stars = int(float(row.get('freedreams_num_stars')))
+    except (TypeError, ValueError):
+        num_stars = 0
+    if num_stars > 0:
+        meta.append("★" * num_stars)
+    rating = row.get('freedreams_rating')
+    if isinstance(rating, str) and rating and rating != "No rating":
+        meta.append(html.escape(rating))
+    if meta:
+        html_parts.append(f"<div class='meta'>{' · '.join(meta)}</div>")
+
+    if status_entry:
+        style = STATUS_STYLE[status_entry["status"]]
+        html_parts.append(f"<div class='status' style='color:{style['color']}'>● {html.escape(style['label'])}</div>")
+        if status_entry.get("note"):
+            html_parts.append(f"<div class='note'>{html.escape(status_entry['note'])}</div>")
+
+    for restaurant in restaurants:
+        note = " <i>(address differs)</i>" if restaurant.get('match') == 'name_same_zip' else ""
+        address = f" – {html.escape(restaurant['address'])}" if restaurant.get('address') else ""
+        html_parts.append(f"<div class='restaurant'>🍽 {html.escape(restaurant['name'])}{address}{note}</div>")
+
+    if thumb_base64:
+        html_parts.append(f"<img src='data:image/jpeg;base64,{thumb_base64}' alt=''>")
+    return "".join(html_parts)
+
+
+# Hotel status (which hotels were visited / replied / rejected) is kept by hand in hotel_status.json.
+# Hotels without an entry are "unknown" (grey). Entries are matched by Freedreams URL, or by a name/location
+# pattern, so a hotel that disappears from Freedreams and comes back (possibly under a new URL) keeps its status.
+STATUS_STYLE = {
+    "stayed": {"color": "#16a34a", "label": "Stayed here"},
+    "positive": {"color": "#eab308", "label": "Replied positively, not stayed"},
+    "rejected": {"color": "#dc2626", "label": "Rejected (combo not possible)"},
+    "unknown": {"color": "#9ca3af", "label": "No info yet"},
+}
+DEFAULT_STATUS_PATH = "hotel_status.json"
+
+
+def load_hotel_status(path):
+    """Returns the list of status entries; an absent or broken file just means no statuses."""
+    try:
+        entries = json.loads(Path(path).read_text(encoding="utf-8")).get("hotels", [])
+    except (OSError, ValueError) as e:
+        print(f"No hotel status loaded from {path}: {e}")
+        return []
+    for entry in entries:
+        if entry.get("status") not in STATUS_STYLE:
+            print(f"Warning: unknown status {entry.get('status')!r} for {entry.get('name')!r}; treating as 'unknown'.")
+            entry["status"] = "unknown"
+    return entries
+
+
+def find_status_entry(entries, hotel_url, hotel_name="", hotel_location=""):
+    """The status entry for a hotel, matched by URL first and then by its name/location pattern."""
+    for entry in entries:
+        if hotel_url in entry.get("urls", []):
+            return entry
+    name, location = str(hotel_name).lower(), str(hotel_location).lower()
+    for entry in entries:
+        pattern = entry.get("match")
+        if pattern and pattern.get("name_contains", "").lower() in name and \
+                pattern.get("location_contains", "").lower() in location and (name or location):
+            return entry
+    return None
+
+
+def restaurant_coordinates(restaurants):
+    """First valid (lat, lng) of the matched restaurants, or None."""
+    for restaurant in restaurants:
+        try:
+            lat, lng = float(restaurant.get('lat')), float(restaurant.get('lng'))
+        except (TypeError, ValueError):
+            continue
+        if lat == lat and lng == lng:   # not NaN
+            return lat, lng
+    return None
+
+
+def geocode_location(geolocator, geocode_cache, location_name):
+    """(lat, lng) of a place name via the cache or Nominatim; None if it cannot be resolved."""
+    cached = geocode_cache.get(location_name)
+    if cached:
+        return tuple(cached)
+    try:
+        location = geolocator.geocode(location_name, timeout=10)
+    except (GeocoderTimedOut, GeocoderServiceError) as e:
+        print(f"Geocoding service error for {location_name}: {e}. Skipping.")
+        time.sleep(1)
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred during geocoding for {location_name}: {e}. Skipping.")
+        time.sleep(1)
+        return None
+
+    # IMPORTANT: Add a delay to respect Nominatim's usage policy (usually 1 request per second).
+    # Only needed after a real request, not for cache hits.
+    time.sleep(1)
+    if not location:
+        print(f"Could not find geocoding data for {location_name}")
+        return None
+    geocode_cache[location_name] = [location.latitude, location.longitude]
+    print(f"Successfully geocoded {location_name}: ({location.latitude}, {location.longitude})")
+    return location.latitude, location.longitude
+
+
+def generate_map_html(df, location_col, image_data_list, output_html_path="hotel_map.html", restaurants_by_url=None,
+                      status_entries=None):
     """
     Generates an HTML file with an interactive Leaflet map displaying locations from the DataFrame
     using Nominatim for geocoding.
-    Includes hotel URL and image in the tooltip.
+    Includes hotel name, stars/rating, the matched restaurants and a thumbnail in the popup.
+
+    df must contain one row per hotel; restaurants_by_url maps a hotel URL to its matched restaurants.
     """
     if location_col not in df.columns:
         print(f"Error: The DataFrame must contain a column named '{location_col}'.")
@@ -284,47 +457,65 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
 
     geolocator = Nominatim(user_agent="freedreams_hotel_map_generator")
 
+    status_entries = status_entries or []
+    matched_entries = set()
+    geocode_cache = load_geocode_cache()
     markers = []
     for index, row in df.iterrows():
         location_name = row[location_col]
         hotel_url = row.get('freedreams_webpage', 'URL Not Available') # Get URL, provide default
-        image_base64 = image_data_map.get(index, {}).get('image_base64', None)
+        thumb_base64 = image_data_map.get(index, {}).get('thumb_base64', None)
 
         if pd.isna(location_name) or not isinstance(location_name, str):
             print(f"Skipping row {index}: Invalid or missing location name.")
             continue
 
-        print(f"Geocoding location ({index + 1}/{len(df)}): {location_name}")
-        try:
-            location = geolocator.geocode(location_name, timeout=10) # Added timeout for robustness
-            if location:
-                # Construct the popup HTML content
-                popup_html = f"<b><a href='{hotel_url}' target='_blank'>{hotel_url}</a></b><br>"
-                if image_base64:
-                    popup_html += f"<img src='data:image/png;base64,{image_base64}' style='max-width:150px; height:auto; margin-top:5px;'>"
-                else:
-                    popup_html += "<p>No image available.</p>"
+        restaurants = (restaurants_by_url or {}).get(hotel_url, [])
+        exact_position = restaurant_coordinates(restaurants)
+        # Lunch-Check knows the exact position of the matched restaurant, which is at the hotel
+        position = exact_position or geocode_location(geolocator, geocode_cache, location_name)
+        if not position:
+            continue
+        lat, lng = position
+        status_entry = find_status_entry(status_entries, hotel_url, row.get('freedreams_hotel_name', ''), location_name)
+        if status_entry:
+            matched_entries.add(id(status_entry))
 
-                markers.append({
-                    'name': location_name,
-                    'lat': location.latitude,
-                    'lng': location.longitude,
-                    'popup_content': popup_html # Store the full HTML for the popup
-                })
-                print(f"Successfully geocoded {location_name}: ({location.latitude}, {location.longitude})")
-            else:
-                print(f"Could not find geocoding data for {location_name}")
+        popup_html = build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry)
 
-        except (GeocoderTimedOut, GeocoderServiceError) as e:
-            print(f"Geocoding service error for {location_name}: {e}. Skipping.")
-        except Exception as e:
-            print(f"An unexpected error occurred during geocoding for {location_name}: {e}. Skipping.")
+        markers.append({
+            'name': location_name,
+            'lat': lat,
+            'lng': lng,
+            'popup_content': popup_html, # Store the full HTML for the popup
+            'status': (status_entry or {}).get('status', 'unknown'),
+        })
 
-        # IMPORTANT: Add a delay to respect Nominatim's usage policy (usually 1 request per second)
-        time.sleep(1)
+    # Hotels with a recorded status that are not in this run's matches (e.g. removed from Freedreams) are still shown
+    for entry in status_entries:
+        if id(entry) in matched_entries or entry["status"] == "unknown":
+            continue
+        position = (entry.get("lat"), entry.get("lng"))
+        if None in position:
+            position = geocode_location(geolocator, geocode_cache, entry.get("location", ""))
+        if not position:
+            continue
+        style = STATUS_STYLE[entry["status"]]
+        popup_html = (f"<b>{html.escape(entry['name'])}</b>"
+                      f"<div class='status' style='color:{style['color']}'>● {html.escape(style['label'])}</div>"
+                      f"<div class='note'>{html.escape(entry.get('note', ''))}</div>"
+                      f"<div class='note'><i>Not among this week's Freedreams + Lunch-Check matches.</i></div>")
+        markers.append({'name': entry['name'], 'lat': position[0], 'lng': position[1],
+                        'popup_content': popup_html, 'status': entry['status']})
+
+    save_geocode_cache(geocode_cache)
 
     # Convert the Python list of dictionaries to a JSON string for JavaScript
     markers_json = json.dumps(markers)
+    stacking = {"stayed": 300, "positive": 200, "rejected": 100, "unknown": 0}
+    status_style_json = json.dumps({
+        status: {**style, "z": stacking[status]} for status, style in STATUS_STYLE.items()
+    })
 
     html_content = f"""
 <!DOCTYPE html>
@@ -365,8 +556,45 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
         .leaflet-popup-content a:hover {{
             text-decoration: underline;
         }}
+        .leaflet-popup-content .meta {{
+            color: #b45309;
+            font-weight: 600;
+        }}
+        .leaflet-popup-content .status {{
+            font-weight: 600;
+            margin-top: 2px;
+        }}
+        .leaflet-popup-content .note {{
+            font-size: 12px;
+            color: #555;
+            margin-top: 2px;
+        }}
+        .legend {{
+            background: rgba(255,255,255,0.92);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.7;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.3);
+        }}
+        .legend i {{
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            margin-right: 6px;
+            vertical-align: -1px;
+        }}
+        .leaflet-popup-content .restaurant {{
+            font-size: 13px;
+            color: #333;
+            margin-top: 2px;
+        }}
         .leaflet-popup-content img {{
             display: block;
+            width: 260px;
+            max-width: 100%;
+            height: auto;
             margin-top: 5px;
             border-radius: 4px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -379,6 +607,19 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
     <script>
         let map;
         let markersData = {markers_json}; // Pass markers data from Python
+        const statusStyle = {status_style_json}; // colour, label and stacking order per status
+
+        function pinIcon(color) {{
+            return L.divIcon({{
+                className: '',
+                html: '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">' +
+                      '<path d="M14 1C7 1 1.5 6.5 1.5 13.5C1.5 23 14 39 14 39S26.5 23 26.5 13.5C26.5 6.5 21 1 14 1Z" ' +
+                      'fill="' + color + '" stroke="#fff" stroke-width="2"/><circle cx="14" cy="13.5" r="4.5" fill="#fff"/></svg>',
+                iconSize: [28, 40],
+                iconAnchor: [14, 39],
+                popupAnchor: [0, -34]
+            }});
+        }}
 
         function initMap() {{
             // Initialize the map, centered on a default location or first marker
@@ -393,12 +634,25 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }}).addTo(map);
 
+            // Legend
+            const legend = L.control({{position: 'bottomleft'}});
+            legend.onAdd = () => {{
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = Object.values(statusStyle)
+                    .map(s => '<div><i style="background:' + s.color + '"></i>' + s.label + '</div>').join('');
+                return div;
+            }};
+            legend.addTo(map);
+
             // Create a LatLngBounds object to include all markers
             let bounds = new L.LatLngBounds();
 
             markersData.forEach(markerData => {{
-                let marker = L.marker([markerData.lat, markerData.lng]).addTo(map)
-                    .bindPopup(markerData.popup_content); // Bind popup with the generated HTML content
+                let marker = L.marker([markerData.lat, markerData.lng], {{
+                    icon: pinIcon(statusStyle[markerData.status].color),
+                    zIndexOffset: statusStyle[markerData.status].z
+                }}).addTo(map)
+                    .bindPopup(markerData.popup_content, {{maxWidth: 300}}); // Bind popup with the generated HTML content
 
                 // Extend bounds for each marker
                 bounds.extend([markerData.lat, markerData.lng]);
@@ -438,6 +692,8 @@ def main():
                         help="Path to save the generated HTML report for screenshots. Default is 'hotel_screenshots.html'.")
     parser.add_argument("--output-map-html-path", type=str, default="hotel_map.html",
                         help="Path to save the generated HTML report for the map. Default is 'hotel_map.html'.")
+    parser.add_argument("--status-file", type=str, default=DEFAULT_STATUS_PATH,
+                        help="JSON file with the visited/replied/rejected status of hotels. Default is 'hotel_status.json'.")
     args = parser.parse_args()
 
     try:
@@ -457,14 +713,27 @@ def main():
         print(f"Creating directory for output map HTML: {output_map_html_file.parent}")
         output_map_html_file.parent.mkdir(parents=True, exist_ok=True)
 
+    # Several restaurants can match the same hotel: scrape and plot every hotel only once.
+    restaurants_by_url = {}
+    for _, row in df.iterrows():
+        restaurants_by_url.setdefault(row['freedreams_webpage'], []).append({
+            'name': row.get('lunchcheck_restaurant_name'),
+            'address': row.get('lunchcheck_address') if isinstance(row.get('lunchcheck_address'), str) else '',
+            'match': row.get('Address_Match'),
+            'lat': row.get('lunchcheck_latitude'),
+            'lng': row.get('lunchcheck_longitude'),
+        })
+    hotels_df = df.drop_duplicates(subset='freedreams_webpage').reset_index(drop=True)
+
     # Scrape images and get the list of data
-    scraped_images = scrape_hotel_images(df)
+    scraped_images = scrape_hotel_images(hotels_df)
 
     # Generate the HTML report for screenshots
     generate_html_report(scraped_images, output_screenshots_html_file)
 
     # Generate the interactive Leaflet Map HTML, passing the scraped_images list
-    generate_map_html(df, 'freedreams_location', scraped_images, output_map_html_file)
+    generate_map_html(hotels_df, 'freedreams_location', scraped_images, output_map_html_file, restaurants_by_url,
+                      load_hotel_status(Path.cwd() / args.status_file))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,63 @@
+{
+  "hotels": [
+    {
+      "name": "Hotel Kristall-Saphir",
+      "status": "stayed",
+      "note": "Stayed. Hotel confirmed half-board can be paid with Lunch-Check (Mar 2026).",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/wallis/saas-almagell/hotel-kristall-saphirsuperior"],
+      "location": "Saas-Almagell, Wallis, CH"
+    },
+    {
+      "name": "Hotel Hirschen Wildhaus",
+      "status": "stayed",
+      "note": "Stayed. Not listed on Freedreams at the last check; shown from its own record.",
+      "urls": [],
+      "match": {"name_contains": "hirschen", "location_contains": "wildhaus"},
+      "location": "Wildhaus, St. Gallen, CH",
+      "lat": 47.203526,
+      "lng": 9.349782
+    },
+    {
+      "name": "Hotel Chäseren",
+      "status": "positive",
+      "note": "Replied positively (Mar 2026): Freedreams room available and the bill can be paid with Lunch-Check. Not booked, travelled elsewhere.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/appenzell-ausserrhoden/schoenengrund/hotel-restaurant-chaseren"],
+      "location": "Schönengrund, Appenzell Ausserrhoden, CH"
+    },
+    {
+      "name": "Hotel Falken Wengen",
+      "status": "positive",
+      "note": "Replied positively (Mar 2026): available, bookable with Freedreams. Lunch-Check was not explicitly confirmed. Not booked.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/bern/wengen/hotel-falken"],
+      "location": "Wengen, Bern, CH"
+    },
+    {
+      "name": "Hotel Cristal",
+      "status": "rejected",
+      "note": "Hotel says the Freedreams + Lunch-Check combination is not possible (Mar 2026). Also closed over Easter.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/glarus/braunwald/hotel-cristal-4"],
+      "location": "Braunwald, Glarus, CH"
+    },
+    {
+      "name": "Hotel Solaria",
+      "status": "unknown",
+      "note": "Asked (Mar 2026): no Freedreams quota left over Easter. Lunch-Check question not answered.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/graubuenden/bivio/hotel-solaria"],
+      "location": "Bivio, Graubünden, CH"
+    },
+    {
+      "name": "Hotel des Alpes",
+      "status": "unknown",
+      "note": "Asked (Mar 2026): no Freedreams bookings over Easter. Lunch-Check question not answered.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/bern/adelboden/hotel-des-alpes-4"],
+      "location": "Adelboden, Bern, CH"
+    },
+    {
+      "name": "Hotel Krüzli",
+      "status": "unknown",
+      "note": "Asked (Mar 2026): no Freedreams availability over Easter. Lunch-Check question not answered; they mention payment in cash, by card or in advance.",
+      "urls": ["https://www.freedreams.ch/de/hotel/schweiz/graubuenden/sedrun/hotel-kruezli"],
+      "location": "Sedrun, Graubünden, CH"
+    }
+  ]
+}
