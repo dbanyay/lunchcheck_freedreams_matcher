@@ -30,7 +30,7 @@ jobs:
         run: uv sync --frozen
 
       - name: Scrape Lunch-Check
-        run: uv run python src/scrape_lunchcheck.py --base-url "https://www.lunch-card.ch/public/LunchCheck/LC_Directory.aspx" --output-filename lunchcheck_restaurants.csv --headless
+        run: uv run python src/scrape_lunchcheck.py --base-url "https://directory.lunch-check.ch/" --output-filename lunchcheck_restaurants.csv
 
       - name: Upload Lunch-Check data
         uses: actions/upload-artifact@v4

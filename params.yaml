@@ -1,5 +1,5 @@
 scrape_lunchcheck:
-  base_url: "https://www.lunch-card.ch/public/LunchCheck/LC_Directory.aspx"
+  base_url: "https://directory.lunch-check.ch/"
 
 scrape_freedreams:
     base_url: "https://www.freedreams.ch/de/hotels/schweiz"
