@@ -501,9 +501,10 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
         if not position:
             continue
         style = STATUS_STYLE[entry["status"]]
+        note_html = f"<div class='note'>{html.escape(entry['note'])}</div>" if entry.get("note") else ""
         popup_html = (f"<b>{html.escape(entry['name'])}</b>"
                       f"<div class='status' style='color:{style['color']}'>● {html.escape(style['label'])}</div>"
-                      f"<div class='note'>{html.escape(entry.get('note', ''))}</div>"
+                      f"{note_html}"
                       f"<div class='note'><i>Not among this week's Freedreams + Lunch-Check matches.</i></div>")
         markers.append({'name': entry['name'], 'lat': position[0], 'lng': position[1],
                         'popup_content': popup_html, 'status': entry['status']})
