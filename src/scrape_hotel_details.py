@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -16,6 +17,28 @@ DEFAULT_CACHE_PATH = Path(".cache") / "hotel_details.json"
 DEFAULT_REFRESH_DAYS = 60  # re-read an address after this long, in case a hotel moved or changed its details
 ADDRESS_SELECTOR = "p.s-address"
 MAX_CONSECUTIVE_FAILURES = 5
+
+# Cache entries written by an older version of this script (without the pseudo theme "SKI") are re-read.
+SCHEMA_VERSION = 2
+
+# Downhill skiing, as opposed to the "Wintersport" theme which also covers cross-country skiing, snowshoeing and
+# sledging ("Langlaufski" and "Schlittenpisten" must NOT match, hence the word-start anchors).
+DOWNHILL_SKI_RE = re.compile(
+    r"\bski(?:gebiet|lift|piste|pisten|schule|pass|verleih|fahr\w*|bus|region|ort|arena|-)"
+    r"|\bski\s+fahr\w*"
+    r"|\bpistenkilometer|\bsessellift|\bgondelbahn|\bluftseilbahn|\bskilifte|\bschneesportschule|\bskipisten"
+    r"|\bski-\s*und\b",
+    re.IGNORECASE,
+)
+
+
+def detect_themes(js_themes, page_text):
+    """The theme headings found on the page, plus the pseudo theme "SKI" if the page mentions downhill skiing."""
+    themes = list(js_themes)
+    if DOWNHILL_SKI_RE.search(page_text or ""):
+        themes.append("SKI")
+    return themes
+
 
 # The "Themen" headings on a hotel page that become flags on the map. Matched case-insensitively against the
 # own text of any element, so the exact page structure does not matter.
@@ -75,7 +98,7 @@ def load_cache(cache_path):
 
 
 def is_stale(details, refresh_days):
-    if "themes" not in details:   # cached before themes were recorded
+    if details.get("version") != SCHEMA_VERSION:   # cached by an older version of this script
         return True
     try:
         return date.fromisoformat(details["fetched_at"]) < date.today() - timedelta(days=refresh_days)
@@ -129,6 +152,10 @@ def scrape_hotel_details(input_files, output_filename, cache_path, headless=True
                     driver.get(url)
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ADDRESS_SELECTOR)))
                     details = driver.execute_script(EXTRACT_DETAILS_JS, THEME_NAMES)
+                    if details:
+                        page_text = driver.execute_script(
+                            "return (document.querySelector('.js-hotel-detail-page') || document.body).textContent;")
+                        details["themes"] = detect_themes(details["themes"], page_text)
                 except (TimeoutException, WebDriverException) as error:
                     consecutive_failures += 1
                     print(f"  failed ({type(error).__name__}); title: {driver.title!r}")
@@ -142,7 +169,7 @@ def scrape_hotel_details(input_files, output_filename, cache_path, headless=True
                     continue
 
                 consecutive_failures = 0
-                cache[url] = {**details, "fetched_at": date.today().isoformat()}
+                cache[url] = {**details, "fetched_at": date.today().isoformat(), "version": SCHEMA_VERSION}
                 print(f"  {details['street']}, {details['zip_code']} {details['city']}")
                 if position % 10 == 0:
                     save_cache(cache_path, cache)
@@ -154,7 +181,7 @@ def scrape_hotel_details(input_files, output_filename, cache_path, headless=True
     rows = []
     for url in urls:
         if url in cache:
-            details = {k: v for k, v in cache[url].items() if k != "fetched_at"}
+            details = {k: v for k, v in cache[url].items() if k not in ("fetched_at", "version")}
             details["themes"] = "|".join(details.get("themes", []))
             rows.append({"webpage": url, **details})
     if not rows:

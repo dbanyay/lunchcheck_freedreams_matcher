@@ -344,7 +344,7 @@ def build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry=Non
     if meta:
         html_parts.append(f"<div class='meta'>{' · '.join(meta)}</div>")
 
-    if status_entry:
+    if status_entry and status_entry["status"] != "unknown":   # grey pins need no label; the legend explains them
         style = STATUS_STYLE[status_entry["status"]]
         html_parts.append(f"<div class='status' style='color:{style['color']}'>● {html.escape(style['label'])}</div>")
         if status_entry.get("note"):
@@ -381,12 +381,13 @@ STATUS_STYLE = {
 }
 DEFAULT_STATUS_PATH = "hotel_status.json"
 
-# Freedreams "Themen" of a hotel -> emoji flag in the map popup (and its tooltip). Change the emoji here.
+# Freedreams page themes -> emoji flag in the map popup (and its tooltip). Change the emoji here.
+# SKI is derived by scrape_hotel_details.py: the page mentions downhill skiing (a "Wintersport" theme alone can also
+# mean cross-country skiing or snowshoeing). WANDERN (hiking) and ÖV-FREUNDLICH are on nearly every hotel, so they
+# are still read and stored but not shown.
 THEME_FLAGS = {
-    "WANDERN": ("🥾", "Hiking"),
-    "WINTERSPORT": ("⛷️", "Winter sports"),
+    "SKI": ("⛷️", "Ski area nearby"),
     "WELLNESS": ("🧖", "Wellness / spa"),
-    "ÖV-FREUNDLICH": ("🚆", "Easy by public transport"),
 }
 
 
