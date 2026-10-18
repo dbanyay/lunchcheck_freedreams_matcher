@@ -4,611 +4,261 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Swiss Hotel Deals + Lunch-Check</title>
+    <meta name="description" content="Swiss hotels where you can stay with a Freedreams voucher and pay for the meals with Lunch-Check.">
     <style>
-        /* Import Google Fonts */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --green-700: #15803d;
+            --green-600: #16a34a;
+            --green-50: #f0fdf4;
+            --ink: #1f2937;
+            --muted: #6b7280;
+            --line: #e5e7eb;
+            --bg: #f6f8f6;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #2d5a27 0%, #1a4d1a 50%, #0f3b0f 100%);
-            color: #333;
-            overflow-x: hidden;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            line-height: 1.5;
         }
 
-        /* Header Section */
-        .hero-section {
-            min-height: 90vh; /* Adjusted for better fit on screen */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #2d5a27 0%, #1a4d1a 50%, #0f3b0f 100%);
-            position: relative;
-            padding: 1.5rem; /* Slightly reduced padding */
-        }
+        a { color: var(--green-700); font-weight: 600; text-decoration: none; }
+        a:hover { text-decoration: underline; }
 
-        .hero-content {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 2.5rem; /* Slightly reduced padding */
-            max-width: 810px;
-            width: 100%;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            text-align: center;
-            animation: fadeInUp 0.8s ease-out;
+        /* Top bar */
+        .topbar {
+            background: linear-gradient(135deg, #2d5a27, #0f3b0f);
+            color: #fff;
+            padding: 0.9rem 1rem;
         }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-content h1 {
-            font-size: 3.2rem; /* Slightly reduced font size */
-            font-weight: 700;
-            background: linear-gradient(135deg, #4ade80, #16a34a, #15803d);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 1.2rem; /* Slightly reduced margin */
-            line-height: 1.1;
-        }
-
-        .hero-content > p {
-            font-size: 1.1rem; /* Slightly reduced font size */
-            color: #666;
-            line-height: 1.6;
-            margin-bottom: 1.8rem; /* Slightly reduced margin */
-        }
-
-        .steps-container {
-            margin-top: 1.8rem; /* Slightly reduced margin */
-            padding: 1.8rem; /* Slightly reduced padding */
-            background: linear-gradient(135deg, rgba(22, 163, 74, 0.1), rgba(21, 128, 61, 0.05));
-            border-radius: 16px;
-            border: 2px solid rgba(22, 163, 74, 0.2);
-            box-shadow: inset 0 2px 10px rgba(22, 163, 74, 0.1);
-        }
-
-        .steps-container h3 {
-            color: #16a34a;
-            margin-bottom: 1.2rem; /* Slightly reduced margin */
-            font-size: 1.2rem; /* Slightly reduced font size */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .steps-container ol {
-            text-align: left;
-            max-width: 600px;
+        .topbar-inner {
+            max-width: 1100px;
             margin: 0 auto;
-            color: #333;
-            line-height: 1.7; /* Slightly reduced line height */
-            font-size: 1rem; /* Slightly reduced font size */
-        }
-
-        .steps-container li {
-            margin-bottom: 0.8rem; /* Slightly reduced margin */
-            padding-left: 0.5rem;
-        }
-
-        .steps-container li strong {
-            color: #15803d;
-        }
-
-        .steps-container a {
-            color: #16a34a;
-            text-decoration: none;
-            font-weight: 600;
-            border-bottom: 2px solid transparent;
-            transition: border-color 0.3s ease;
-        }
-
-        .steps-container a:hover {
-            border-bottom-color: #16a34a;
-        }
-
-        .scroll-indicator {
-            position: absolute;
-            bottom: 1.5rem; /* Adjusted for smaller hero section */
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.8);
-            text-align: center;
-            animation: bounce 2s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% {
-                transform: translateX(-50%) translateY(0);
-            }
-            40% {
-                transform: translateX(-50%) translateY(-10px);
-            }
-            60% {
-                transform: translateX(-50%) translateY(-5px);
-            }
-        }
-
-        .scroll-indicator div {
-            font-size: 0.85rem; /* Slightly reduced font size */
-            margin-bottom: 0.4rem;
-        }
-
-        .scroll-arrow {
-            font-size: 1.3rem; /* Slightly reduced font size */
-        }
-
-        /* Map Section */
-        .map-section {
-            min-height: 100vh;
             display: flex;
-            flex-direction: column;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
-            padding-top: 2rem;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .topbar h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+        .topbar p { font-size: 0.85rem; opacity: 0.85; }
+        .topbar a { color: #fff; }
+        .book-link {
+            flex-shrink: 0;
+            padding: 0.5rem 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 999px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        .book-link:hover { background: rgba(255, 255, 255, 0.15); text-decoration: none; }
+
+        /* Map area */
+        .map-area { max-width: 1100px; margin: 0 auto; padding: 0.75rem 1rem 0; }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+            margin-bottom: 0.6rem;
         }
 
-        .last-update {
-            text-align: center;
-            color: #777;
-            font-size: 0.9rem;
-            margin-bottom: 1rem; /* Space between update text and toggle */
-        }
-
-        /* Toggle Section */
-        .toggle-section {
-            text-align: center;
-            padding-bottom: 2rem;
-        }
-
-        .toggle-container {
+        .segmented {
             display: inline-flex;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 50px;
-            padding: 0.5rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 3px;
         }
-
-        .toggle-option {
-            padding: 1rem 2rem;
-            border-radius: 40px;
+        .segmented button {
             border: none;
             background: transparent;
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            font-weight: 500;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            color: #666;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .toggle-option.active {
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            color: white;
-            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
-        }
-
-        .toggle-option:hover:not(.active) {
-            background: rgba(22, 163, 74, 0.1);
-            color: #16a34a;
-        }
-
-        /* Map Container */
-        .map-container {
-            flex-grow: 1;
-            max-width: 800px; /* Match hero content width */
-            width: 100%;
-            margin: 0 auto; /* Center the map */
-            margin-bottom: 2rem;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-            touch-action: pan-x pan-y; /* Allow panning for mobile */
-        }
-
-        .map-frame {
-            width: 100%;
-            height: 100%;
-            border: none;
-            border-radius: 20px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            pointer-events: none;
-            touch-action: pan-x pan-y; /* Allow panning for mobile */
-        }
-
-        .map-frame.active {
-            visibility: visible;
-            opacity: 1;
-            pointer-events: all;
-            z-index: 10;
-            touch-action: pan-x pan-y; /* Allow panning for mobile */
-        }
-
-        .loading-state {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #666;
-            font-size: 1.1rem;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255, 255, 255, 0.9);
-            z-index: 20;
-        }
-
-        .loading-state.hidden {
-            display: none;
-        }
-
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #16a34a;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Footer Section */
-        .footer {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 2rem 0;
-            text-align: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
-            width: 100%;
-        }
-
-        .footer-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
-
-        .footer .warning {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            border-radius: 8px;
-            padding: 1rem;
-            color: #dc2626;
-        }
-
-        .footer .warning strong {
-            color: #b91c1c;
-        }
-
-        .footer p {
-            color: #666;
+            font: inherit;
+            font-weight: 600;
             font-size: 0.9rem;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
+            color: var(--muted);
+            padding: 0.5rem 1.2rem;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+        .segmented button[aria-selected="true"] { background: var(--green-600); color: #fff; }
+        .segmented button:focus-visible { outline: 2px solid var(--green-700); outline-offset: 2px; }
+
+        .last-update { font-size: 0.8rem; color: var(--muted); }
+
+        .map-container {
+            position: relative;
+            height: calc(100vh - 190px);   /* fallback */
+            height: calc(100dvh - 190px);
+            min-height: 420px;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .map-container iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+        .map-container iframe[hidden] { display: none; }
+
+        .note {
+            margin-top: 0.6rem;
+            font-size: 0.82rem;
+            color: var(--muted);
         }
 
-        .footer p.impressum {
-            padding-top: 0.5rem; /* Adds padding to the top */
+        /* How to book */
+        .how {
+            max-width: 1100px;
+            margin: 2rem auto 0;
+            padding: 0 1rem;
+            scroll-margin-top: 1rem;
         }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .hero-section {
-                min-height: 80vh; /* Further adjust for tablets */
-                padding: 1rem;
-            }
-
-            .hero-content {
-                padding: 1.8rem;
-                margin: 0.8rem;
-            }
-
-            .hero-content h1 {
-                font-size: 2.5rem;
-            }
-
-            .hero-content > p {
-                font-size: 1rem;
-            }
-
-            .steps-container {
-                padding: 1.2rem;
-            }
-
-            .steps-container h3 {
-                font-size: 1.1rem;
-            }
-
-            .steps-container ol {
-                font-size: 0.95rem;
-            }
-
-            .toggle-option {
-                padding: 0.8rem 1.5rem;
-                font-size: 0.9rem;
-            }
-
-            .map-section {
-                padding: 1rem;
-            }
-
-            .map-container {
-                height: 60vh; /* Give map a good height on tablets */
-            }
+        .how h2 { font-size: 1.3rem; margin-bottom: 0.2rem; }
+        .how > p { color: var(--muted); margin-bottom: 1rem; }
+        .how ol {
+            list-style: none;
+            counter-reset: step;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 0.8rem;
         }
-
-        @media (max-width: 480px) {
-            .hero-section {
-                min-height: auto; /* Allow height to auto-adjust on smallest screens */
-                padding: 1rem 0.5rem;
-            }
-
-            .hero-content h1 {
-                font-size: 2rem;
-                margin-bottom: 1rem;
-            }
-
-            .hero-content {
-                padding: 1.2rem;
-                margin: 0.5rem;
-                border-radius: 16px;
-            }
-
-            .hero-content > p {
-                font-size: 0.95rem;
-                margin-bottom: 1.5rem;
-            }
-
-            .steps-container {
-                padding: 1rem;
-                margin-top: 1.5rem;
-            }
-
-            .steps-container h3 {
-                font-size: 1rem;
-                margin-bottom: 1rem;
-            }
-
-            .steps-container ol {
-                font-size: 0.9rem;
-                line-height: 1.6;
-            }
-
-            .steps-container li {
-                margin-bottom: 0.6rem;
-            }
-
-            .scroll-indicator {
-                bottom: 1rem;
-            }
-
-            .scroll-indicator div {
-                font-size: 0.8rem;
-            }
-
-            .scroll-arrow {
-                font-size: 1.2rem;
-            }
-
-            .toggle-container {
-                flex-direction: column; /* Stack buttons vertically */
-                width: 100%;
-                max-width: 250px; /* Constrain width of stacked buttons */
-                margin: 0 auto;
-                padding: 0.25rem; /* Smaller padding for container */
-            }
-
-            .toggle-option {
-                margin: 0.25rem 0; /* Space between stacked buttons */
-                padding: 0.8rem 1rem; /* Adjust padding for smaller buttons */
-                font-size: 0.85rem; /* Smaller font size for buttons */
-            }
-
-            .map-section {
-                padding: 0.5rem; /* Less padding for map section on very small screens */
-            }
-
-            .map-container {
-                min-height: 50vh; /* Ensure map is visible and usable on phones */
-                height: auto; /* Allow height to adjust if content is short */
-                margin-bottom: 1rem;
-            }
-
-            .footer .warning {
-                padding: 0.8rem;
-                font-size: 0.85rem;
-            }
-
-            .footer p {
-                font-size: 0.8rem;
-            }
-
-            .last-update {
-                font-size: 0.8rem;
-                margin-bottom: 0.8rem;
-            }
+        .how li {
+            counter-increment: step;
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 1rem 1rem 1rem 3.2rem;
+            position: relative;
+            font-size: 0.93rem;
         }
+        .how li::before {
+            content: counter(step);
+            position: absolute;
+            left: 1rem;
+            top: 1rem;
+            width: 1.6rem;
+            height: 1.6rem;
+            border-radius: 50%;
+            background: var(--green-600);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: grid;
+            place-items: center;
+        }
+        .how li strong { color: var(--green-700); }
 
-        /* Smooth scroll behavior */
-        html {
-            scroll-behavior: smooth;
+        /* Footer */
+        .footer { max-width: 1100px; margin: 2rem auto 0; padding: 0 1rem 2rem; }
+        .warning {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            color: #b91c1c;
+            font-size: 0.85rem;
+        }
+        .impressum { margin-top: 0.8rem; font-size: 0.85rem; color: var(--muted); text-align: center; }
+
+        @media (max-width: 600px) {
+            .topbar h1 { font-size: 1.05rem; }
+            .topbar p { display: none; }
+            .map-area { padding: 0.6rem 0.5rem 0; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .segmented { display: flex; }
+            .segmented button { flex: 1; }
+            .last-update { text-align: center; }
+            .map-container { height: 70vh; height: 70dvh; min-height: 380px; }
+            .note { padding: 0 0.5rem; }
         }
     </style>
 </head>
 <body>
-    <section class="hero-section">
-        <div class="hero-content">
-            <h1>Freedreams Hotels + Lunch-Check</h1>
-            <p>
-                This mini-project aims to automatically find Swiss hotels where you can stay for free (by only paying for the meals) with <a href="https://www.freedreams.ch/de/freedreams-prinzip" target="_blank">Freedreams hotel vouchers</a> and use <a href="https://www.lunch-check.ch/" target="_blank">Lunch-Check🇨🇭</a> credits to cover those meals - turning your getaway into a nearly free trip!
-            </p>
-
-            <div class="steps-container">
-                <h3>📋 How to Book (Follow These Steps):</h3>
-                <ol>
-                    <li><strong>Double-check the match:</strong> Mistakes can happen during the automatic matching process. Verify the result.</li>
-                    <li><strong>Contact the hotel directly:</strong> Ask if they have rooms available for your dates AND confirm you can pay for meals with Lunch-Check.</li>
-                    <li><strong>Get your freedreams voucher:</strong> Check your <strong>SBB newsletter</strong> first! SBB often sends out exclusive partner offers for discounted freedreams vouchers. If you don't have one, visit <a href="https://www.freedreams.ch/de/shop" target="_blank">freedreams.ch</a>.</li>
-                    <li><strong>Book with the hotel on freedreams' site:</strong> Use your voucher to secure your stay!</li>
-                    <li><strong>Pay with your Lunch-Check:</strong> Use your Lunch-Check card to pay for dinner and breakfast at the hotel.</li>
-                </ol>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div>
+                <h1>Freedreams Hotels + Lunch-Check</h1>
+                <p>
+                    Swiss hotels where a <a href="https://www.freedreams.ch/de/freedreams-prinzip" target="_blank" rel="noopener">Freedreams voucher</a>
+                    covers the room and your <a href="https://www.lunch-check.ch/" target="_blank" rel="noopener">Lunch-Check🇨🇭</a> pays the meals.
+                </p>
             </div>
+            <a class="book-link" href="#how-to-book">How to book ↓</a>
         </div>
+    </header>
 
-        <div class="scroll-indicator">
-            <div>Scroll down to explore the map</div>
-            <div class="scroll-arrow">↓</div>
-        </div>
-    </section>
-
-    <section class="map-section" id="map-section">
-        <div class="last-update">
-            Last update: August 23, 2026
-        </div>
-        <div class="toggle-section">
-            <div class="toggle-container">
-                <button class="toggle-option active" onclick="showMap('2-nights')">
-                    2 Nights Stay
-                </button>
-                <button class="toggle-option" onclick="showMap('3-nights')">
-                    3 Nights Stay
-                </button>
-            </div>
-        </div>
-
-        <div class="map-container">
-            <div class="loading-state" id="loading-state">
-                <div class="loading-spinner"></div>
-                Loading map...
-            </div>
-            <iframe
-                id="map-2-nights"
-                class="map-frame active"
-                src="results/2_nights_map.html"
-                title="2 Nights Hotel Map">
-            </iframe>
-            <iframe
-                id="map-3-nights"
-                class="map-frame"
-                src="results/3_nights_map.html"
-                title="3 Nights Hotel Map">
-            </iframe>
-        </div>
-
-        <footer class="footer">
-            <div class="footer-content">
-                <div class="warning">
-                    <p>
-                        <strong>⚠️ Important:</strong> I am not responsible for the these results and therefore the bookings.
-                        Mistakes can happen during the automatic matching process. <strong>Always contact the hotel directly</strong>
-                        to confirm that you can use Lunch-Check for meals AND that the Freedreams voucher arrangement works
-                        at their location before making any purchases.
-                    </p>
+    <main>
+        <section class="map-area">
+            <div class="controls">
+                <div class="segmented" role="tablist" aria-label="Length of stay">
+                    <button role="tab" id="tab-2-nights" aria-selected="true" aria-controls="map-2-nights" data-map="2-nights">2 nights</button>
+                    <button role="tab" id="tab-3-nights" aria-selected="false" aria-controls="map-3-nights" data-map="3-nights">3 nights</button>
+                </div>
+                <div class="last-update">
+                    Last update: August 23, 2026
                 </div>
             </div>
-            <p class="impressum">
-            Impressum: <a href="https://github.com/dbanyay/lunchcheck_freedreams_matcher" target="_blank">GitHub Project</a>
+
+            <div class="map-container">
+                <iframe id="map-2-nights" role="tabpanel" aria-labelledby="tab-2-nights"
+                        src="results/2_nights_map.html" title="Hotels for a 2 night stay"></iframe>
+                <iframe id="map-3-nights" role="tabpanel" aria-labelledby="tab-3-nights"
+                        src="results/3_nights_map.html" title="Hotels for a 3 night stay" loading="lazy" hidden></iframe>
+            </div>
+
+            <p class="note">
+                Matches are automatic and can be wrong. <strong>Check with the hotel before you buy a voucher</strong> –
+                <a href="#how-to-book">see how to book</a>.
             </p>
-        </footer>
-    </section>
+        </section>
+
+        <section class="how" id="how-to-book">
+            <h2>📋 How to book</h2>
+            <p>Found a hotel on the map? Follow these steps.</p>
+            <ol>
+                <li><strong>Double-check the match:</strong> Mistakes can happen during the automatic matching process. Verify the result.</li>
+                <li><strong>Contact the hotel directly:</strong> Ask if they have rooms available for your dates AND confirm you can pay for meals with Lunch-Check.</li>
+                <li><strong>Get your freedreams voucher:</strong> Check your <strong>SBB newsletter</strong> first! SBB often sends out exclusive partner offers for discounted freedreams vouchers. If you don't have one, visit <a href="https://www.freedreams.ch/de/shop" target="_blank" rel="noopener">freedreams.ch</a>.</li>
+                <li><strong>Book with the hotel on freedreams' site:</strong> Use your voucher to secure your stay!</li>
+                <li><strong>Pay with your Lunch-Check:</strong> Use your Lunch-Check card to pay for dinner and breakfast at the hotel.</li>
+            </ol>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="warning">
+            <strong>⚠️ Important:</strong> I am not responsible for these results and therefore the bookings.
+            Mistakes can happen during the automatic matching process. <strong>Always contact the hotel directly</strong>
+            to confirm that you can use Lunch-Check for meals AND that the Freedreams voucher arrangement works
+            at their location before making any purchases.
+        </div>
+        <p class="impressum">
+            Impressum: <a href="https://github.com/dbanyay/lunchcheck_freedreams_matcher" target="_blank" rel="noopener">GitHub Project</a>
+        </p>
+    </footer>
 
     <script>
-        let currentMap = '2-nights';
+        const tabs = document.querySelectorAll('.segmented button');
 
         function showMap(mapType) {
-            // Update active state of toggle buttons
-            document.querySelectorAll('.toggle-option').forEach(btn => {
-                btn.classList.remove('active');
+            tabs.forEach(tab => {
+                const selected = tab.dataset.map === mapType;
+                tab.setAttribute('aria-selected', selected);
+                document.getElementById('map-' + tab.dataset.map).hidden = !selected;
             });
-            // Use querySelector to find the button with the correct mapType onclick attribute
-            document.querySelector(`.toggle-option[onclick="showMap('${mapType}')"]`).classList.add('active');
-
-            // Show loading state only if switching maps
-            if (currentMap !== mapType) {
-                document.getElementById('loading-state').classList.remove('hidden');
-            }
-
-            // Hide all map frames
-            document.querySelectorAll('.map-frame').forEach(frame => {
-                frame.classList.remove('active');
-            });
-
-            // Show selected map frame
-            const targetMap = document.getElementById(`map-${mapType}`);
-
-            // Add active class immediately for better UX
-            targetMap.classList.add('active');
-            currentMap = mapType;
-
-            // Hide loading after a short delay to allow iframe to render
-            setTimeout(() => {
-                hideLoading();
-            }, 500);
+            try { history.replaceState(null, '', mapType === '2-nights' ? location.pathname : '#' + mapType); } catch (e) {}
         }
 
-        function hideLoading() {
-            const loadingState = document.getElementById('loading-state');
-            loadingState.classList.add('hidden');
-        }
+        tabs.forEach(tab => tab.addEventListener('click', () => showMap(tab.dataset.map)));
 
-        // Initialize: Hide loading when page is ready
-        document.addEventListener('DOMContentLoaded', function() {
-            // Hide loading after initial load
-            setTimeout(() => {
-                hideLoading();
-            }, 1000);
-        });
-
-        // Add error handling for iframes
-        document.querySelectorAll('.map-frame').forEach(frame => {
-            frame.addEventListener('load', function() {
-                // Ensure the frame is interactive
-                this.style.pointerEvents = 'all';
-            });
-
-            frame.addEventListener('error', function() {
-                console.warn('Map failed to load:', this.src);
-                hideLoading();
-            });
-        });
+        // Allow sharing a link straight to the 3-night map
+        if (location.hash === '#3-nights') showMap('3-nights');
     </script>
 </body>
 </html>
