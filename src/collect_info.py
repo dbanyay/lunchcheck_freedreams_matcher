@@ -361,6 +361,7 @@ def build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry=Non
 
 
 # Hotel status (which hotels were visited / replied / rejected) is kept by hand in hotel_status.json.
+# It only colours hotels that are in the current matches: a hotel that is no longer offered is not drawn at all.
 # Hotels without an entry are "unknown" (grey). Entries are matched by Freedreams URL, or by a name/location
 # pattern, so a hotel that disappears from Freedreams and comes back (possibly under a new URL) keeps its status.
 STATUS_STYLE = {
@@ -458,7 +459,6 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
     geolocator = Nominatim(user_agent="freedreams_hotel_map_generator")
 
     status_entries = status_entries or []
-    matched_entries = set()
     geocode_cache = load_geocode_cache()
     markers = []
     for index, row in df.iterrows():
@@ -478,8 +478,6 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
             continue
         lat, lng = position
         status_entry = find_status_entry(status_entries, hotel_url, row.get('freedreams_hotel_name', ''), location_name)
-        if status_entry:
-            matched_entries.add(id(status_entry))
 
         popup_html = build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry)
 
@@ -490,24 +488,6 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
             'popup_content': popup_html, # Store the full HTML for the popup
             'status': (status_entry or {}).get('status', 'unknown'),
         })
-
-    # Hotels with a recorded status that are not in this run's matches (e.g. removed from Freedreams) are still shown
-    for entry in status_entries:
-        if id(entry) in matched_entries or entry["status"] == "unknown":
-            continue
-        position = (entry.get("lat"), entry.get("lng"))
-        if None in position:
-            position = geocode_location(geolocator, geocode_cache, entry.get("location", ""))
-        if not position:
-            continue
-        style = STATUS_STYLE[entry["status"]]
-        note_html = f"<div class='note'>{html.escape(entry['note'])}</div>" if entry.get("note") else ""
-        popup_html = (f"<b>{html.escape(entry['name'])}</b>"
-                      f"<div class='status' style='color:{style['color']}'>● {html.escape(style['label'])}</div>"
-                      f"{note_html}"
-                      f"<div class='note'><i>Not among this week's Freedreams + Lunch-Check matches.</i></div>")
-        markers.append({'name': entry['name'], 'lat': position[0], 'lng': position[1],
-                        'popup_content': popup_html, 'status': entry['status']})
 
     save_geocode_cache(geocode_cache)
 

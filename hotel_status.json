@@ -5,8 +5,7 @@
       "status": "stayed",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/wallis/saas-almagell/hotel-kristall-saphirsuperior"
-      ],
-      "location": "Saas-Almagell, Wallis, CH"
+      ]
     },
     {
       "name": "Hotel Hirschen Wildhaus",
@@ -15,58 +14,49 @@
       "match": {
         "name_contains": "hirschen",
         "location_contains": "wildhaus"
-      },
-      "location": "Wildhaus, St. Gallen, CH",
-      "lat": 47.203526,
-      "lng": 9.349782
+      }
     },
     {
       "name": "Hotel Chäseren",
       "status": "positive",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/appenzell-ausserrhoden/schoenengrund/hotel-restaurant-chaseren"
-      ],
-      "location": "Schönengrund, Appenzell Ausserrhoden, CH"
+      ]
     },
     {
       "name": "Hotel Falken Wengen",
       "status": "positive",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/bern/wengen/hotel-falken"
-      ],
-      "location": "Wengen, Bern, CH"
+      ]
     },
     {
       "name": "Hotel Cristal",
       "status": "rejected",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/glarus/braunwald/hotel-cristal-4"
-      ],
-      "location": "Braunwald, Glarus, CH"
+      ]
     },
     {
       "name": "Hotel Solaria",
       "status": "unknown",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/graubuenden/bivio/hotel-solaria"
-      ],
-      "location": "Bivio, Graubünden, CH"
+      ]
     },
     {
       "name": "Hotel des Alpes",
       "status": "unknown",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/bern/adelboden/hotel-des-alpes-4"
-      ],
-      "location": "Adelboden, Bern, CH"
+      ]
     },
     {
       "name": "Hotel Krüzli",
       "status": "unknown",
       "urls": [
         "https://www.freedreams.ch/de/hotel/schweiz/graubuenden/sedrun/hotel-kruezli"
-      ],
-      "location": "Sedrun, Graubünden, CH"
+      ]
     }
   ]
 }
