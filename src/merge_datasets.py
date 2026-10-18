@@ -16,7 +16,7 @@ NO_NUMBER_MIN_NAME_SCORE_DEFAULT = 60
 
 OUTPUT_COLUMNS = [
     "freedreams_hotel_name", "lunchcheck_restaurant_name",
-    "freedreams_location", "freedreams_street", "freedreams_zip_code",
+    "freedreams_location", "freedreams_street", "freedreams_zip_code", "freedreams_themes",
     "lunchcheck_address", "lunchcheck_zip_code", "lunchcheck_city", "lunchcheck_canton", "lunchcheck_phone",
     "lunchcheck_latitude", "lunchcheck_longitude",
     "freedreams_rating", "freedreams_num_stars", "freedreams_webpage",
@@ -133,6 +133,7 @@ def find_address_matches(df_freedreams, df_details, df_lunchcheck, restaurants_b
                 **row_fd.add_prefix('freedreams_').to_dict(),
                 "freedreams_street": details["street"],
                 "freedreams_zip_code": details.get("zip_code", ""),
+                "freedreams_themes": details.get("themes", ""),
                 **row_lc.add_prefix('lunchcheck_').to_dict(),
                 "Address_Match": address_match,
                 "Match_Score": name_score,

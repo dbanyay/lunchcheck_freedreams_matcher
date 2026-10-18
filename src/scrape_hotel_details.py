@@ -17,10 +17,22 @@ DEFAULT_REFRESH_DAYS = 60  # re-read an address after this long, in case a hotel
 ADDRESS_SELECTOR = "p.s-address"
 MAX_CONSECUTIVE_FAILURES = 5
 
-# Reads the schema.org PostalAddress microdata of a hotel detail page in one round-trip.
-EXTRACT_ADDRESS_JS = """
+# The "Themen" headings on a hotel page that become flags on the map. Matched case-insensitively against the
+# own text of any element, so the exact page structure does not matter.
+THEME_NAMES = ["WANDERN", "WINTERSPORT", "WELLNESS", "ÖV-FREUNDLICH"]
+
+# Reads the schema.org PostalAddress microdata and the theme headings of a hotel detail page in one round-trip.
+EXTRACT_DETAILS_JS = """
+const themeNames = arguments[0];
 const root = document.querySelector('p.s-address');
 if (!root) return null;
+const page = document.querySelector('.js-hotel-detail-page') || document.body;
+const themes = new Set();
+page.querySelectorAll('*').forEach(el => {
+    const own = Array.from(el.childNodes).filter(n => n.nodeType === 3)
+        .map(n => n.textContent).join('').replace(/\\s+/g, ' ').trim().toUpperCase();
+    if (themeNames.includes(own)) themes.add(own);
+});
 const field = name => {
     const el = root.querySelector('[itemprop="' + name + '"]');
     return el ? el.textContent.replace(/\\s+/g, ' ').trim() : '';
@@ -30,6 +42,7 @@ return {
     zip_code: field('postalCode'),
     city: field('addressLocality'),
     region: field('addressRegion'),
+    themes: themeNames.filter(name => themes.has(name)),
 };
 """
 
@@ -62,6 +75,8 @@ def load_cache(cache_path):
 
 
 def is_stale(details, refresh_days):
+    if "themes" not in details:   # cached before themes were recorded
+        return True
     try:
         return date.fromisoformat(details["fetched_at"]) < date.today() - timedelta(days=refresh_days)
     except (KeyError, ValueError):
@@ -113,7 +128,7 @@ def scrape_hotel_details(input_files, output_filename, cache_path, headless=True
                 try:
                     driver.get(url)
                     wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ADDRESS_SELECTOR)))
-                    details = driver.execute_script(EXTRACT_ADDRESS_JS)
+                    details = driver.execute_script(EXTRACT_DETAILS_JS, THEME_NAMES)
                 except (TimeoutException, WebDriverException) as error:
                     consecutive_failures += 1
                     print(f"  failed ({type(error).__name__}); title: {driver.title!r}")
@@ -136,8 +151,12 @@ def scrape_hotel_details(input_files, output_filename, cache_path, headless=True
             driver.quit()
             save_cache(cache_path, cache)
 
-    rows = [{"webpage": url, **{k: v for k, v in cache[url].items() if k != "fetched_at"}}
-            for url in urls if url in cache]
+    rows = []
+    for url in urls:
+        if url in cache:
+            details = {k: v for k, v in cache[url].items() if k != "fetched_at"}
+            details["themes"] = "|".join(details.get("themes", []))
+            rows.append({"webpage": url, **details})
     if not rows:
         raise RuntimeError("No hotel addresses available.")
     pd.DataFrame(rows).to_csv(output_path, index=False)

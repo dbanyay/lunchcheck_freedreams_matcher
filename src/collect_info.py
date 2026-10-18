@@ -350,6 +350,15 @@ def build_popup_html(row, hotel_url, thumb_base64, restaurants, status_entry=Non
         if status_entry.get("note"):
             html_parts.append(f"<div class='note'>{html.escape(status_entry['note'])}</div>")
 
+    themes = row.get('freedreams_themes')
+    themes = [t for t in str(themes).split("|")] if isinstance(themes, str) else []
+    flags = "".join(
+        f"<span title='{html.escape(THEME_FLAGS[t][1], quote=True)}'>{THEME_FLAGS[t][0]}</span>"
+        for t in THEME_FLAGS if t in themes
+    )
+    if flags:
+        html_parts.append(f"<div class='flags'>{flags}</div>")
+
     for restaurant in restaurants:
         note = " <i>(address differs)</i>" if restaurant.get('match') == 'name_same_zip' else ""
         address = f" – {html.escape(restaurant['address'])}" if restaurant.get('address') else ""
@@ -371,6 +380,14 @@ STATUS_STYLE = {
     "unknown": {"color": "#9ca3af", "label": "No info yet"},
 }
 DEFAULT_STATUS_PATH = "hotel_status.json"
+
+# Freedreams "Themen" of a hotel -> emoji flag in the map popup (and its tooltip). Change the emoji here.
+THEME_FLAGS = {
+    "WANDERN": ("🥾", "Hiking"),
+    "WINTERSPORT": ("⛷️", "Winter sports"),
+    "WELLNESS": ("🧖", "Wellness / spa"),
+    "ÖV-FREUNDLICH": ("🚆", "Easy by public transport"),
+}
 
 
 def load_hotel_status(path):
@@ -540,6 +557,11 @@ def generate_map_html(df, location_col, image_data_list, output_html_path="hotel
         .leaflet-popup-content .meta {{
             color: #b45309;
             font-weight: 600;
+        }}
+        .leaflet-popup-content .flags {{
+            font-size: 20px;
+            letter-spacing: 4px;
+            margin-top: 2px;
         }}
         .leaflet-popup-content .status {{
             font-weight: 600;
